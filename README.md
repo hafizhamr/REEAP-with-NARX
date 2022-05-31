@@ -5,7 +5,7 @@ This project is part of my final project as an undergraduate student majoring in
 Hardware:
 1. NI myDAQ Student Data Acquisition Device
 2. Myoware EMG Sensor
-3. Omron Incremental Rotary Encoder E6B2-CWZ6C
+3. Bourns 3590S-2-502L Precision Potentiometer
 
 Software:
 1. MATLAB R2021a
