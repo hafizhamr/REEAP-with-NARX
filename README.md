@@ -11,6 +11,8 @@ Software:
 1. MATLAB R2021a
 2. MATLAB Simulink
 
+Status: Training NARX Model (On Progress)
+
 ## EMG and Angle Data Acquisition
 
 In this project, I obtained 35 dataset with each dataset consisting of timestamp, EMG, and angle data for 20 seconds at a rate of 1000 data per second. So the total data length for this project is 700000 data points or 700 seconds.
@@ -33,5 +35,3 @@ The features of EMG data from this dataset is extracted using Zero Crossing and 
 
 ![fitur](https://user-images.githubusercontent.com/80141940/177255679-46ab1d37-8a88-4c3b-a79a-46f2027870e4.png)
 ![fitur zoom](https://user-images.githubusercontent.com/80141940/177255690-4148344b-3af3-4056-95f6-0d98ce374c27.png)
-
-Status: Training NARX Model (On Progress)
