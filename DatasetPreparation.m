@@ -2,11 +2,11 @@ clear; clc;
 
 %% Data organization
 % Baca file rawdataset1.mat hingga rawdataset(N).mat
-dirPath = "~\Dataset_raw";	% Full path folder dataset
+dirPath = "D:\Kuliah\Semester 8\Skripsi\Source Code\Dataset_raw";
 datasetFile = dir(fullfile(dirPath,'rawdataset*.mat'));
 %datasetFile = natsortfiles(dir(fullfile(dirPath,'rawdataset*.mat')));
-% Note: Gunakan fungsi 'natsort' dan 'natsortfiles' oleh Stephen Cobeldick
-%       untuk menjalankan kode diatas
+% Note: Gunakan fungsi 'natsort.m' dan 'natsortfiles.m' oleh 
+%       Stephen Cobeldick untuk menjalankan kode diatas
 dataPH = cell(1, numel(datasetFile));
 
 for k = 1 : numel(datasetFile)
@@ -49,7 +49,7 @@ leg.ItemHitFcn = @legendToggle;
 % dan pada rentang 450-500 Hz (low-pass)
 % Notch Filter di frekuensi 50Hz untuk PLI
 EMGfilter = dfilter(EMGdata);
-% Note: Gunakan fungsi 'dfilter' untuk menjalankan kode diatas
+% Note: Gunakan fungsi 'dfilter.m' untuk menjalankan kode diatas
 
 % Olah data sudut dengan moving average untuk smoothing dan
 % menghilangkan spike artifacts
@@ -94,6 +94,7 @@ leg.ItemHitFcn = @legendToggle;
 % Ekstraksi fitur EMG dengan panjang window 100 ms
 % Setiap 0.1 detik data sinyal EMG akan diekstraksi dengan IEMG
 feature = extract(EMGfilter*1000, POTfilter, 50);
+% Note: Gunakan fungsi 'extract.m' untuk menjalankan kode diatas
 zc = feature.zc;                % Ambil data Zero Crossing EMG
 iemg = feature.iemg/1000;            % Ambil data Integrated EMG
 sudut = feature.sudut;          % Ambil data sudut
