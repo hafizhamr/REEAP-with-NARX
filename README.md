@@ -10,4 +10,4 @@ Hardware:
 Software:
 1. MATLAB R2021a
 
-Status: Data Acquisition (On Progress)
+Status: Training NARX Model (On Progress)
