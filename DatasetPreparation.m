@@ -2,7 +2,7 @@ clear; clc;
 
 %% Data organization
 % Baca file rawdataset1.mat hingga rawdataset(N).mat
-dirPath = "D:\Kuliah\Semester 8\Skripsi\Source Code\Dataset_raw";
+dirPath = "~\Dataset_raw";	% Full path folder dataset
 datasetFile = dir(fullfile(dirPath,'rawdataset*.mat'));
 %datasetFile = natsortfiles(dir(fullfile(dirPath,'rawdataset*.mat')));
 % Note: Gunakan fungsi 'natsort.m' dan 'natsortfiles.m' oleh 
