@@ -3,9 +3,7 @@ clear; clc;
 %% Global variable
 
 t = 20.00;                       % Time
-rate = 1000;                     % Rate
-V_ref = 5;                       % Tegangan masukan/ref
-fullDeg = 360;                   % Sudut maksimum potensiometer
+rate = 10000;                    % Rate
 
 %% Akuisisi data EMG Real-time
 
@@ -21,8 +19,7 @@ toc
 %% Olah dan Plot Data
 
 data_vol = [timestamps data];
-% Konversi tegangan potensiometer menjadi sudut
-potdeg = (data(:,1) * fullDeg) / V_ref;         
+potdeg = data(:,1);         
 figure(2)
 plot(timestamps, potdeg)
 % Data EMG
