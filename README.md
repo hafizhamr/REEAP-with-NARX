@@ -9,9 +9,8 @@ Hardware:
 
 Software:
 1. MATLAB R2021a
-2. MATLAB Simulink
 
-Status: Training NARX Model (On Progress)
+Status: Finished
 
 ## EMG and Angle Data Acquisition
 
