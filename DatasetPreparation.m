@@ -3,143 +3,173 @@ clear; clc;
 %% Data organization
 % Baca file rawdataset1.mat hingga rawdataset(N).mat
 dirPath = "~\Dataset_raw";	% Full path folder dataset
-datasetFile = dir(fullfile(dirPath,'rawdataset*.mat'));
-%datasetFile = natsortfiles(dir(fullfile(dirPath,'rawdataset*.mat')));
+%datasetFile = dir(fullfile(dirPath,'rawdataset*.mat'));
+datasetFile = natsortfiles(dir(fullfile(dirPath,'rawdataset*.mat')));
 % Note: Gunakan fungsi 'natsort.m' dan 'natsortfiles.m' oleh 
 %       Stephen Cobeldick untuk menjalankan kode diatas
-dataPH = cell(1, numel(datasetFile));
+
+[TH, dataPHraw, dataPHfilter] = assignVar();
 
 for k = 1 : numel(datasetFile)
-	% Buka setiap file dan gabung menjadi satu file dalam variabel
-    % placeholder (dataPH)
+    m = numel(sprintf('Preparing dataset %d\n', k));
+    fprintf('Preparing dataset %d\n', k);
+
+	% Buka setiap file 
     matFile = load(fullfile(dirPath,datasetFile(k).name));
-    EMG = matFile.dataset(:,3);               % Baca data sinyal EMG
-    t = seconds(linspace(0,20, length(EMG)));  % Panjang data dalam detik  
+    EMG = matFile.data_vol(:,3);               % Baca data sinyal EMG
+    % EMG = EMG - mean(EMG);
+    POTdata = matFile.data_vol(:,2);           % Baca data potensiometer
     % Cari dan ganti outliers dengan window = 1 detik menggunakan metode
     % median sepanjang data yang ada
-    [EMGfilter, TF] = filloutliers(EMG, 'clip', 'movmedian', ...
-        seconds(.1), 'Samplepoints', t); 
-    dataPHraw{k} = matFile.dataset(:,2:3);
-    dataPHfilter{k} = [matFile.dataset(:,2) EMGfilter];
+    t = seconds(linspace(0, 20, length(EMG))); % Panjang data dalam detik  
+    [POTdata, ~] = filloutliers(POTdata, 'clip', 'movmedian', ...
+        seconds(.1), 'Samplepoints', t);
+
+    % Konversi data potensiometer ke dalam bentuk sudut
+    % Parameter (POTdata = a*POTdata + b) didapatkan dari kalibrasi
+    % potensiometer dengan menggunakan goniometer
+    POTdata = (74.155*POTdata) - 1.6953;
+    % Hilangkan noise pengukuran
+    POTdata = circshift(POTdata, -4000);
+    POTdata = limitSudut(POTdata, 0);
+    % POTdataNorm = sudutNorm(POTdata, 0, 100);
+
+    % Cari nilai threshold untuk ekstraksi fitur Zero Crossing
+    % Threshold data sinyal EMG didapatkan dengan:
+    % TH = 4 * (1/N * sum(EMG(1:N)), lihat: Toledo-Pérez et.al (2016)
+    % dimana N merupakan jumlah sampel sinyal EMG dalam keadaan relaksasi
+    TH(k) = 4 * (sum(EMG(1:1000)) / 1000);
+
+    % Gabung dalam satu variabel placeholder (dataPH)
+    dataPHraw{k} = [POTdata EMG];
+    % dataPHfilter{k} = [POTdataNorm EMG];
+
+    fprintf(repmat(char(8), [1 m]));
 end
 
 % Buka data dan jadikan satu variabel
 dataCombRaw = cat(1, dataPHraw{:});    
 dataCombFilter = cat(1, dataPHfilter{:});
-POTdata = dataCombRaw(:,1);        % Data sudut potensiometer raw
-EMGdata = dataCombRaw(:,2);       % Data sinyal EMG raw
-%EMGdata = dataCombFilter(:,2);
-lenData = (1:length(POTdata));
+% Data sudut potensiometer raw
+POTdata = dataCombRaw(:,1);       
+% POTdata = dataCombFilter(:,1);
+% Data sinyal EMG raw
+EMGdata = dataCombRaw(:,2);
+% EMGdata = dataCombFilter(:,2);
+% lenData = (1:length(POTdata))';
+fs = 10000;
+lenData = (1/fs:1/fs:20)';
 
-figure
-yyaxis left
-plot(lenData, POTdata)
-yyaxis right
-plot(lenData, EMGdata)
-leg = legend('Sudut', 'Raw EMG');
-leg.ItemHitFcn = @legendToggle;
+fprintf("Data preparation finished   \x2713\n");
+
+plotFigure(lenData, [], POTdata, EMGdata, 'Data Raw Sudut dan EMG', ...
+    'Sudut', 'Raw EMG')
 
 % save newrawDataset.mat dataCombRaw
 % save newrawDatasetFilt.mat dataCombFilter
+% save newDatasetNorm.mat dataCombFilter
+
+clearVar()
 
 %% Olah sudut dan sinyal EMG
+disp("Data preprocessing in progress...");
+
 % Filter sinyal EMG dengan Butterworth IIR Filter
-% Bandpass filter orde 2 dengan rentang frekuensi 10Hz - 500 Hz
+% Bandpass filter orde 4 dengan rentang frekuensi 10Hz - 450 Hz
 % Biasanya sinyal EMG yang diambil berada pada rentang 10-20 Hz (high-pass)
 % dan pada rentang 450-500 Hz (low-pass)
-% Notch Filter di frekuensi 50Hz untuk PLI
-EMGfilter = dfilter(EMGdata);
+% Notch Filter orde 2 di frekuensi 50Hz untuk PLI
+EMGfilter = dfilter(EMGdata, 'fft');
+% EMGfilter = dfilter(EMGdata);
 % Note: Gunakan fungsi 'dfilter.m' untuk menjalankan kode diatas
 
 % Olah data sudut dengan moving average untuk smoothing dan
-% menghilangkan spike artifacts
-windowWidth = 100;
-kernel = ones(windowWidth, 1) / windowWidth;
-POTfilter = filtfilt(kernel, 1, POTdata);
-%POTfilter = POTdata;
- 
-% Gabung data menjadi dataset
-dataCombFilt = [POTfilter EMGfilter];
-compEMGData = [EMGdata EMGfilter];
-compPOTData = [POTdata POTfilter];
-dataset = [POTdata EMGfilter];
+% menghilangkan motion artifacts
+POTfilter = movavge(POTdata, 500);
+POTfilter = movavge(POTfilter, 500);
+t = seconds(linspace(0, 780, length(POTfilter)));
+[POTfilter, ~] = filloutliers(POTfilter, 'clip', 'movmedian', ...
+        seconds(.1), 'Samplepoints', t);
 
-% save newrawDataset_filt.mat dataCombFilt
-% save newdataset.mat dataset
+stDev = std(POTfilter)  %#ok
+numData = 200000;
+i = 1:numData:length(EMGfilter);
+j = numData:numData:length(EMGfilter);
+EMGCont = cell(1, 39);
+POTCont = cell(1, 39);
+for k = 1:numel(i)
+    EMGCont{k} = EMGfilter(i(k):j(k));
+    POTCont{k} = POTfilter(i(k):j(k));
+end
 
-figure
-yyaxis left
-plot(lenData, POTfilter)
-yyaxis right
-plot(lenData, EMGfilter)
-leg = legend('Filtered sudut', 'Filtered EMG');
-leg.ItemHitFcn = @legendToggle;
+fprintf(repmat(char(8), [1 34]));
+fprintf("Data preprocessing finished \x2713\n");
 
-figure
-subplot(2,1,1)
-yyaxis left
-plot(lenData, EMGdata)
-yyaxis right
-plot(lenData, EMGfilter)
-title('Raw EMG dan Filtered EMG');
-leg = legend('Raw EMG', 'Filtered EMG');
-leg.ItemHitFcn = @legendToggle;
-subplot(2,1,2)
-plot(compPOTData)
-title('Sudut Raw dan Filtered Sudut');
-leg = legend('Sudut Raw', 'Filtered Sudut');
-leg.ItemHitFcn = @legendToggle;
+plotFigure(lenData, [], POTfilter, EMGfilter, ...
+    'Filtered sudut dan Filtered EMG', 'Filtered sudut', 'Filtered EMG')
+
+plotFigure(lenData, [], EMGdata, EMGfilter, 'Raw EMG dan Filtered EMG', ...
+    'Raw EMG', 'Filtered EMG')
+
+plotFigure(lenData, [], POTdata, POTfilter, ...
+    'Sudut Raw dan Filtered Sudut', 'Sudut Raw', 'Filtered Sudut', 'true')
+
+clear lenData numData
 
 %% EMG Feature Extraction
-% Ekstraksi fitur EMG dengan panjang window 100 ms
-% Setiap 0.1 detik data sinyal EMG akan diekstraksi dengan IEMG
-feature = extract(EMGfilter*1000, POTfilter, 50);
-% Note: Gunakan fungsi 'extract.m' untuk menjalankan kode diatas
-zc = feature.zc;                % Ambil data Zero Crossing EMG
-iemg = feature.iemg/1000;            % Ambil data Integrated EMG
-sudut = feature.sudut;          % Ambil data sudut
-time = feature.ts;              % Ambil data waktu total
-ida = iddata(sudut, [zc iemg], .1);  % Gabung data
-ida.InputName = {'zc','emg'};        % Set nama Input
-ida.OutputName = {'sudut'};     % Set nama output
+disp("Feature extraction in progress...");
+[zc, iemg, sudut] = extractVar();
 
-save new2dataFull.mat ida
+for k = 1:numel(i)
+    % Ekstraksi fitur EMG dengan panjang window 50 ms
+    % Setiap 0.1 detik data sinyal EMG akan diekstraksi dengan IEMG
+    feature = extract(EMGCont{k}, POTCont{k}, TH(k), 50);
+    % Note: Gunakan fungsi 'extract.m' untuk menjalankan kode diatas
+    zc{k} = feature.zc;                    % Ambil data Zero Crossing EMG
+    iemg{k} = feature.iemg;                % Ambil data Integrated EMG
+    sudut{k} = feature.sudut;              % Ambil data sudut
+end
+
+zcComb = cat(1, zc{:});
+iemgComb = cat(1, iemg{:});
+sudutComb = cat(1, sudut{:}); 
+time = 1:length(sudutComb);
+ida = iddata(sudutComb, [zcComb iemgComb], .05);     % Gabung data
+ida.InputName = {'Zero Crossing', 'Integrated EMG'}; % Set nama Input
+ida.OutputName = {'Sudut'};                          % Set nama output
+
+save extractedData-50.mat ida
+
+fprintf(repmat(char(8), [1 34]));
+fprintf("Feature extraction finished \x2713\n");
 
 figure
 plot(ida)
 
-figure
-yyaxis left
-plot(time, sudut)
-yyaxis right
-plot(time, iemg)
-title('Sudut dan IEMG');
-leg = legend('Sudut', 'IEMG');
-leg.ItemHitFcn = @legendToggle;
+plotFigure(time', [], sudutComb, zcComb, 'Sudut dan Zero Crossing', ...
+    'Sudut', 'Zero Crossing')
 
-% figure
-% yyaxis left
-% plot(EMGfilter)
-% yyaxis right
-% plot((1:numel(iemg))*100,iemg)
+plotFigure(time', [], sudutComb, iemgComb, 'Sudut dan Integrated EMG', ...
+    'Sudut', 'Integrated EMG');
+yLim = get(gca,'YLim');
+set(gca,'YLim', [0 yLim(2)]);
 
-%% Normalization
-% % Normalisasi data dengan jangkauan 0 hingga 1
-% normalizedRaw = normalize(dataCombRaw, 'range');
-% normalizedFilt = normalize(dataCombFilt, 'range');
-% 
-% % Normalisasi data dengan zero mean
-% % normalizedRaw = dataCombRaw - mean(dataCombRaw);
-% % normalizedFilt = dataCombFilt - mean(dataCombFilt);
-% 
-% figure
-% subplot(2,1,1)
-% plot(normalizedRaw)
-% title('Sudut dan Raw EMG Ternormalisasi');
-% legend('Sudut', 'Raw EMG');
-% subplot(2,1,2)
-% plot(normalizedFilt)
-% title('Sudut dan Filtered EMG Ternormalisasi');
-% legend('Sudut', 'Filtered EMG');
-% save rawNormDataset_raw.mat normalizedRaw
-% save rawNormDataset_filt.mat normalizedFilt
+clear feature leg k
+
+disp("All processes are done.");
+
+%% Blok Fungsi
+function [TH, dataPHraw, dataPHfilter] = assignVar()
+    TH = zeros(39, 1);
+    dataPHraw = cell(1, 39);
+    dataPHfilter = cell(1, 39);
+end
+function [zc, iemg, sudut] = extractVar()
+    zc = cell(1, 39);
+    iemg = cell(1, 39);
+    sudut = cell(1, 39);
+end
+function clearVar()
+evalin( 'base', 'clear EMG dirPath dataPHraw dataPHfilter')
+evalin('base', 'clear dataCombRaw dataCombFilter matFile k m datasetFile')
+end
